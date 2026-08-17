@@ -97,6 +97,7 @@
       <a class="btn primary" href="#install">Install</a>
       <a class="btn ghost" href="#envs">The eight environments</a>
       <a class="btn ghost" href="#failure">Reading a failure</a>
+      <a class="btn ghost" href="#repeat">Flake or finding?</a>
       <a class="btn ghost" href="#ci">In CI</a>
       <a class="btn ghost" href="#limits">What it can't tell you</a>
       <a class="btn ghost" href="https://github.com/flossypurse-studios/otherbox">View on GitHub →</a>
@@ -153,9 +154,10 @@ otherbox -- npm run test:unit             <span class="c-comment"># any command,
 otherbox --only tz,locale                 <span class="c-comment"># just these</span>
 otherbox --skip home,clean-env            <span class="c-comment"># all but these</span>
 otherbox --json                           <span class="c-comment"># machine-readable, for CI</span>
+otherbox --repeat 3                       <span class="c-comment"># each environment 3 times: flake or finding?</span>
 otherbox --list                           <span class="c-comment"># what each environment is and catches</span>
 otherbox --timeout 120                    <span class="c-comment"># seconds per run (default 600)</span></pre>
-  <p class="muted"><b>Exit codes:</b> <code class="inline-code">0</code> every environment passed · <code class="inline-code">1</code> at least one failed · <code class="inline-code">2</code> the command was wrong, or your suite already failed before anything was changed.</p>
+  <p class="muted"><b>Exit codes:</b> <code class="inline-code">0</code> every environment passed · <code class="inline-code">1</code> at least one failed or was flaky · <code class="inline-code">2</code> the command was wrong, or your suite already failed — or failed only sometimes — before anything was changed.</p>
 </section>
 
 <section id="envs">
@@ -195,6 +197,32 @@ otherbox --timeout 120                    <span class="c-comment"># seconds per 
   <p class="muted" style="margin-top:16px;">That is a real run: a date compared against <code class="inline-code">toLocaleDateString</code>, correct in every timezone west of the dateline and wrong in the one otherbox picked.</p>
 </section>
 
+<section id="repeat">
+  <h2>Flake or finding? <span style="color:var(--muted)">--repeat</span></h2>
+  <p>A single red environment has two explanations: the change broke your suite, or your suite is unreliable and this run is where the coin came up tails. <code class="inline-code">--repeat &lt;n&gt;</code> runs each environment <code class="inline-code">n</code> times and separates them.</p>
+  <div class="term">
+    <div class="bar"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
+<pre><span class="c-muted">$</span> <span class="c-cmd">otherbox --repeat 3 --only tz,clean-env</span>
+  <span class="c-muted">baseline   </span> <span class="c-green">pass</span>    <span class="c-muted">6.1s    your environment, unchanged</span>
+  <span class="c-acc">tz         </span> <span class="c-red">FAIL</span>    <span class="c-muted">6.3s    a clock that is not yours</span>
+  <span class="c-acc">clean-env  </span> <span class="c-key">flaky</span>   <span class="c-muted">6.0s    none of your shell</span>
+
+<span class="c-cmd">1 of 2 environments failed every run. Your suite passes here and would not pass there. 1
+more was flaky — failed some runs, passed others — which says nothing about the change.</span></pre>
+  </div>
+  <div class="grid" style="margin-top:20px;">
+    <div class="card">
+      <h3>fails every run</h3>
+      <p>A finding, and it says so: <code>failed all 3 runs — consistent, not a flake.</code></p>
+    </div>
+    <div class="card">
+      <h3>fails some runs</h3>
+      <p>Reported as <code>flaky</code> and kept out of <code>failed</code> in <code>--json</code> — it gets its own <code>flaky</code> array. The environment is not the suspect; your suite is.</p>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:16px;">And if the <b>baseline</b> itself fails some runs and passes others, otherbox stops with exit 2 before any environment runs. A command that cannot agree with itself twice cannot have a failure attributed to anything. The exit code still counts a flake as something to look at — the report just refuses to blame a timezone for it.</p>
+</section>
+
 <section id="ci">
   <h2>In CI</h2>
 <pre class="block">- run: npx otherbox --json &gt; otherbox.json
@@ -208,7 +236,7 @@ otherbox --timeout 120                    <span class="c-comment"># seconds per 
   <h2>What it can't tell you</h2>
   <p>The same list is in the README, and it is deliberately the first thing you read there too.</p>
   <ul>
-    <li><b>It is not a flake detector.</b> Every run is deterministic and one-variable-at-a-time. A test that fails at random will look like a failure of whichever environment it landed in; re-run with <code class="inline-code">--only &lt;id&gt;</code> to check.</li>
+    <li><b>It is not a flake detector, but it will not pretend a flake is a finding.</b> Each run is deterministic and one-variable-at-a-time, so without <code class="inline-code">--repeat</code> a test that fails at random looks like a failure of whichever environment it landed on. <code class="inline-code">--repeat &lt;n&gt;</code> is the answer to that question, not a way of hunting flakes generally.</li>
     <li><b>It only changes the environment.</b> Not the OS, not filesystem case-sensitivity, not the CPU architecture, not the Node version, not the network. A green otherbox does not mean your suite passes everywhere — it means it does not depend on these eight things.</li>
     <li><b>A failure is not always a bug in the test.</b> <code class="inline-code">clean-env</code> failing may mean your suite genuinely needs a secret. Then the finding is "this suite cannot run on a clean checkout", which is worth knowing and worth writing down.</li>
     <li><b>It runs your command N+1 times.</b> On a slow suite that is real wall-clock time; use <code class="inline-code">--only</code>, or run it nightly rather than per-commit.</li>
