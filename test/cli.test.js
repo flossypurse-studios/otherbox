@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const path = require('node:path');
+const os = require('node:os');
 const { execFile } = require('node:child_process');
 
 const BIN = path.join(__dirname, '..', 'bin', 'otherbox.js');
@@ -103,4 +104,65 @@ test('a command that does not exist fails at the baseline, honestly', async () =
   const r = await otherbox(['--', 'this-command-does-not-exist-otherbox']);
   assert.equal(r.code, 2);
   assert.match(r.stderr, /failed before anything was changed/);
+});
+
+// --repeat: telling a flake from a real dependency on the environment.
+
+function counterFile() {
+  return path.join(os.tmpdir(), `otherbox-counter-${process.pid}-${Math.random().toString(36).slice(2)}`);
+}
+
+test('--repeat names an environment that fails only sometimes as flaky, not as a finding', async () => {
+  const r = await otherbox(['--repeat', '2', '--only', 'tz', '--', ...fixture('flaky-under-tz.js')], {
+    OTHERBOX_TEST_COUNTER: counterFile(),
+  });
+  assert.equal(r.code, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /tz\s+flaky/);
+  assert.match(r.stdout, /failed 1 of 2 runs/);
+  assert.match(r.stdout, /unreliable, not the environment/);
+});
+
+test('--repeat says out loud when a failure was consistent', async () => {
+  const r = await otherbox(['--repeat', '2', '--only', 'tz', '--', ...fixture('utc-hours.js')]);
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /tz\s+FAIL/);
+  assert.match(r.stdout, /failed all 2 runs — consistent, not a flake/);
+});
+
+test('--repeat refuses a baseline that is not deterministic, with exit 2', async () => {
+  const r = await otherbox(['--repeat', '2', '--only', 'ci', '--', ...fixture('flaky-always.js')], {
+    OTHERBOX_TEST_COUNTER: counterFile(),
+  });
+  assert.equal(r.code, 2);
+  assert.match(r.stderr, /failed 1 of 2 times before anything was changed/);
+  assert.match(r.stderr, /not deterministic here/);
+  assert.ok(!r.stdout.includes('reproduce:'), 'no report from an unreliable baseline');
+});
+
+test('--repeat carries run counts into --json', async () => {
+  const r = await otherbox(['--json', '--repeat', '2', '--only', 'tz,ci', '--', ...fixture('flaky-under-tz.js')], {
+    OTHERBOX_TEST_COUNTER: counterFile(),
+  });
+  assert.equal(r.code, 1);
+  const data = JSON.parse(r.stdout);
+  assert.equal(data.repeat, 2);
+  assert.deepEqual(data.failed, [], 'a flake is not a finding');
+  assert.deepEqual(data.flaky, ['tz']);
+  const tz = data.environments.find((e) => e.id === 'tz');
+  assert.equal(tz.runs, 2);
+  assert.equal(tz.failures, 1);
+  assert.equal(tz.flaky, true);
+  assert.equal(data.baseline.runs, 2);
+  assert.equal(data.baseline.failures, 0);
+});
+
+test('--repeat rejects nonsense before running anything', async () => {
+  for (const bad of ['0', '-1', '2.5', 'twice']) {
+    const r = await otherbox(['--repeat', bad, '--', ...fixture('always-pass.js')]);
+    assert.equal(r.code, 2, `--repeat ${bad}`);
+    assert.match(r.stderr, /--repeat needs a whole number/);
+  }
+  const tooMany = await otherbox(['--repeat', '50', '--', ...fixture('always-pass.js')]);
+  assert.equal(tooMany.code, 2);
+  assert.match(tooMany.stderr, /The limit is 20/);
 });

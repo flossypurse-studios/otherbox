@@ -19,12 +19,15 @@ Options:
   --skip <ids>        run all but these
   --list              list the environments and what each one catches
   --json              machine-readable report on stdout
+  --repeat <n>        run each environment n times; a run that fails some of
+                      the time is reported as flaky, not as a finding (default 1)
   --timeout <seconds> kill a run that takes longer (default 600)
   -h, --help          this
   -v, --version       version
 
-Exit codes: 0 every environment passed, 1 at least one failed,
-2 the command was wrong or your suite already failed before anything changed.
+Exit codes: 0 every environment passed, 1 at least one failed or was flaky,
+2 the command was wrong, or your suite already failed \u2014 or failed only
+sometimes \u2014 before anything was changed.
 `;
 
 function distance(a, b) {
@@ -60,7 +63,7 @@ function splitIds(value) {
 
 // Pure. Returns { error } or a settled set of options.
 function parseArgs(argv) {
-  const opts = { command: [], only: [], skip: [], json: false, list: false, help: false, version: false, timeoutMs: 600000 };
+  const opts = { command: [], only: [], skip: [], json: false, list: false, help: false, version: false, timeoutMs: 600000, repeat: 1 };
   let i = 0;
   while (i < argv.length) {
     const arg = argv[i];
@@ -92,6 +95,16 @@ function parseArgs(argv) {
       for (const id of ids) if (!IDS.includes(id)) return { error: unknownId(id) };
       if (flag === '--only') opts.only.push(...ids);
       else opts.skip.push(...ids);
+    } else if (flag === '--repeat') {
+      const value = takeValue();
+      const times = Number(value);
+      if (!Number.isInteger(times) || times < 1) {
+        return { error: `--repeat needs a whole number of runs, 1 or more, got "${value}".` };
+      }
+      if (times > 20) {
+        return { error: `--repeat ${times} would run your command ${times * (IDS.length + 1)} times at most. The limit is 20; use --only to narrow it instead.` };
+      }
+      opts.repeat = times;
     } else if (flag === '--timeout') {
       const value = takeValue();
       const secs = Number(value);
@@ -145,21 +158,48 @@ async function main(argv, io = {}) {
   const results = [];
   let exitCode = 0;
   try {
-    if (!opts.json) err(`otherbox: ${opts.command.join(' ')} \u2014 baseline first, then ${chosen.length} environment${chosen.length === 1 ? '' : 's'}.\n`);
+    const repeat = opts.repeat;
+    const times = repeat === 1 ? '' : `, ${repeat} times each`;
+    if (!opts.json) err(`otherbox: ${opts.command.join(' ')} \u2014 baseline first, then ${chosen.length} environment${chosen.length === 1 ? '' : 's'}${times}.\n`);
 
-    const baseline = await run(opts.command, { ...baseEnv }, { cwd, timeoutMs: opts.timeoutMs });
+    // Runs one command `repeat` times and folds the runs into one verdict.
+    // A run that fails every time is a finding; one that fails some of the
+    // time is the suite being unreliable, and says nothing about the change.
+    const repeatedly = async (env) => {
+      const runs = [];
+      for (let n = 0; n < repeat; n += 1) {
+        runs.push(await run(opts.command, env, { cwd, timeoutMs: opts.timeoutMs }));
+      }
+      const failures = runs.filter((r) => !r.ok);
+      const spokesman = failures[0] || runs[runs.length - 1];
+      return {
+        runs: repeat,
+        failures: failures.length,
+        ok: failures.length === 0,
+        flaky: failures.length > 0 && failures.length < repeat,
+        ms: Math.max(...runs.map((r) => r.ms)),
+        code: spokesman.code,
+        timedOut: spokesman.timedOut,
+        output: spokesman.output,
+      };
+    };
+
+    const baseline = await repeatedly({ ...baseEnv });
     if (!baseline.ok) {
-      err(
-        `otherbox: your command failed before anything was changed \u2014 nothing to learn from ` +
-          `perturbing it. Fix the baseline first.\n\n${tail(baseline.output, 20).join('\n')}\n`
-      );
+      const why = baseline.flaky
+        ? `your command failed ${baseline.failures} of ${baseline.runs} times before anything was changed \u2014 ` +
+          `it is not deterministic here, so nothing an environment does to it could be attributed. ` +
+          `Make the baseline repeatable first.`
+        : `your command failed before anything was changed \u2014 nothing to learn from perturbing it. ` +
+          `Fix the baseline first.`;
+      err(`otherbox: ${why}\n\n${tail(baseline.output, 20).join('\n')}\n`);
       return 2;
     }
 
     for (const p of chosen) {
       const plan = p.plan(baseEnv, temp);
       const env = envFor(plan, baseEnv);
-      const result = await run(opts.command, env, { cwd, timeoutMs: opts.timeoutMs });
+      const result = await repeatedly(env);
       results.push({
         id: p.id,
         title: p.title,
@@ -168,16 +208,19 @@ async function main(argv, io = {}) {
         unset: plan.unset,
         repro: reproFor(plan, opts.command),
         ok: result.ok,
+        flaky: result.flaky,
+        runs: result.runs,
+        failures: result.failures,
         ms: result.ms,
         code: result.code,
         timedOut: result.timedOut,
         tail: result.ok ? [] : tail(result.output),
       });
       if (!result.ok) exitCode = 1;
-      if (!opts.json) err(`  ${result.ok ? 'pass' : 'FAIL'}  ${p.id}\n`);
+      if (!opts.json) err(`  ${result.ok ? 'pass' : result.flaky ? 'flaky' : 'FAIL'}  ${p.id}\n`);
     }
 
-    const report = { version: VERSION, command: opts.command, baseline, results };
+    const report = { version: VERSION, command: opts.command, repeat, baseline, results };
     out(opts.json ? `${jsonReport(report)}\n` : `\n${humanReport(report)}`);
     return exitCode;
   } finally {

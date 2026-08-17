@@ -159,7 +159,7 @@ test('a clean run says so without ceremony', () => {
     baseline: { ok: true, ms: 10, code: 0 },
     results: [{ id: 'tz', title: 't', catches: 'c', set: {}, unset: [], repro: 'r', ok: true, ms: 10, code: 0, timedOut: false, tail: [] }],
   });
-  assert.match(text, /All 1 environments pass/);
+  assert.match(text, /The one environment passes/);
 });
 
 test('the json report is parseable and carries the failing ids', () => {
@@ -189,4 +189,36 @@ test('wrap does not split a word or lose one', () => {
   const text = wrap('one two three four five six seven', 12, '  ');
   assert.equal(text.split('\n').every((l) => l.startsWith('  ')), true);
   assert.equal(text.replace(/\s+/g, ' ').trim(), 'one two three four five six seven');
+});
+
+test('--repeat is parsed, bounded, and defaults to one run', () => {
+  assert.equal(parseArgs([]).repeat, 1);
+  assert.equal(parseArgs(['--repeat', '3']).repeat, 3);
+  assert.equal(parseArgs(['--repeat=5']).repeat, 5);
+  assert.match(parseArgs(['--repeat', '0']).error, /whole number/);
+  assert.match(parseArgs(['--repeat', '1.5']).error, /whole number/);
+  assert.match(parseArgs(['--repeat', '21']).error, /limit is 20/);
+});
+
+test('a flaky environment is reported as a flake, not as a property of the change', () => {
+  const result = {
+    version: '0.0.0',
+    command: ['npm', 'test'],
+    repeat: 3,
+    baseline: { ok: true, ms: 10, code: 0, runs: 3, failures: 0 },
+    results: [
+      { id: 'tz', title: 'a clock', catches: 'dates', set: {}, unset: [], repro: 'TZ=X npm test', ok: false, flaky: true, runs: 3, failures: 1, ms: 10, code: 1, timedOut: false, tail: ['boom'] },
+    ],
+  };
+  const text = humanReport(result);
+  assert.match(text, /tz\s+flaky/);
+  assert.match(text, /failed 1 of 3 runs/);
+  assert.ok(!/environments? failed every run/.test(text), 'a flake is not counted as a finding');
+
+  const data = JSON.parse(jsonReport(result));
+  assert.equal(data.repeat, 3);
+  assert.deepEqual(data.failed, []);
+  assert.deepEqual(data.flaky, ['tz']);
+  assert.equal(data.environments[0].failures, 1);
+  assert.equal(data.ok, false);
 });

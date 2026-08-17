@@ -54,12 +54,14 @@ otherbox -- npm run test:unit             # any command, after --
 otherbox --only tz,locale                 # just these
 otherbox --skip home,clean-env            # all but these
 otherbox --json                           # machine-readable, for CI
+otherbox --repeat 3                       # run each environment 3 times: flake or finding?
 otherbox --list                           # what each environment is and catches
 otherbox --timeout 120                    # seconds per run (default 600)
 ```
 
-Exit codes: **0** every environment passed · **1** at least one failed · **2** the command
-was wrong, or your suite already failed before anything was changed.
+Exit codes: **0** every environment passed · **1** at least one failed or was flaky · **2** the
+command was wrong, or your suite already failed — or failed only sometimes — before anything
+was changed.
 
 ## The environments
 
@@ -79,6 +81,32 @@ Each one changes **one** thing. Nothing else moves, so a failure has exactly one
 `clean-env` keeps only `PATH`, `HOME`, `TMPDIR`/`TMP`/`TEMP`, `SHELL`, `USER`, `LOGNAME`,
 `PWD`, `TERM`, `LANG` and the handful of variables Windows needs to start a process.
 
+## Flake or finding? `--repeat`
+
+A single red environment has two explanations: the change broke your suite, or your suite is
+unreliable and this run is where the coin came up tails. `--repeat <n>` runs each environment
+`n` times and separates them:
+
+```
+$ otherbox --repeat 3 --only tz,clean-env
+  baseline   pass    6.1s    your environment, unchanged
+  tz         FAIL    6.3s    a clock that is not yours
+  clean-env  flaky   6.0s    none of your shell
+
+1 of 2 environments failed every run. Your suite passes here and would not pass there. 1
+more was flaky — failed some runs, passed others — which says nothing about the change.
+```
+
+- **fails every run** → a finding. `failed all 3 runs — consistent, not a flake.`
+- **fails some runs** → `flaky`, and it is **not** listed under `failed` in `--json`; it gets its
+  own `flaky` array. The environment is not the suspect; your suite is.
+- **the baseline itself is not deterministic** → exit 2 before any environment runs. If your
+  command cannot agree with itself twice, nothing done to it could be attributed.
+
+The exit code still counts a flake as something to look at (1), because it is. The report just
+refuses to blame a timezone for it. Maximum `--repeat` is 20; use `--only` to keep the wall
+clock honest.
+
 ## In CI
 
 ```yaml
@@ -90,9 +118,10 @@ Or gate on a subset you have already cleaned: `npx otherbox --only tz,clean-env`
 
 ## Honest limitations
 
-- **It is not a flake detector.** Every run is deterministic and one-variable-at-a-time.
-  A test that fails at random will look like a failure of whichever environment it landed in;
-  re-run with `--only <id>` to check.
+- **It is not a flake detector, but it will not pretend a flake is a finding.** Each run is
+  deterministic and one-variable-at-a-time, so without `--repeat` a test that fails at random
+  looks like a failure of whichever environment it landed on. `--repeat <n>` is the answer to
+  that question, not a way of hunting flakes generally.
 - **It only changes the environment.** Not the OS, not the filesystem case-sensitivity, not
   the CPU architecture, not the Node version, not the network. A green `otherbox` does not
   mean your suite passes everywhere — it means it does not depend on these eight things.
