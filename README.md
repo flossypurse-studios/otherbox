@@ -56,6 +56,7 @@ otherbox --skip home,clean-env            # all but these
 otherbox --json                           # machine-readable, for CI
 otherbox --repeat 3                       # run each environment 3 times: flake or finding?
 otherbox --list                           # what each environment is and catches
+otherbox --why clean-env                  # what a pass there proves — and what it does not
 otherbox --timeout 120                    # seconds per run (default 600)
 ```
 
@@ -106,6 +107,37 @@ more was flaky — failed some runs, passed others — which says nothing about 
 The exit code still counts a flake as something to look at (1), because it is. The report just
 refuses to blame a timezone for it. Maximum `--repeat` is 20; use `--only` to keep the wall
 clock honest.
+
+## What a pass is worth: `--why`
+
+A green environment is a specific, narrow claim. `--why <id>` prints the claim and its
+limits, in the same words as **Honest limitations** below — so the terminal and the README
+cannot drift apart:
+
+```
+$ otherbox --why tz
+tz — a clock that is not yours
+
+  changes: TZ=Pacific/Kiritimati
+
+  A passing tz proves
+    - your command passes with TZ set to a zone fourteen hours ahead of UTC,
+      where the local date is already tomorrow for most of your working day
+    ...
+
+  It cannot
+    - prove the code is timezone-correct. One zone is one sample: a negative
+      offset, a half-hour offset (Asia/Kolkata is +05:30) and a DST boundary are
+      all unexercised — Kiritimati has no DST
+    ...
+```
+
+`otherbox --why` on its own lists the eight environments, `--why all` prints every one in
+full, and `--why --json` is the same content as data. It reads no files and starts no
+processes: it answers in an empty directory, before there is a project to test.
+
+Every environment must have a non-empty **It cannot** list — a test fails if one does not, so
+a ninth environment cannot ship without someone writing down what it fails to prove.
 
 ## In CI
 

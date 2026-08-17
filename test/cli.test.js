@@ -166,3 +166,39 @@ test('--repeat rejects nonsense before running anything', async () => {
   assert.equal(tooMany.code, 2);
   assert.match(tooMany.stderr, /The limit is 20/);
 });
+
+test('--why answers in an empty directory, without running anything', async () => {
+  const empty = await require('node:fs/promises').mkdtemp(path.join(os.tmpdir(), 'otherbox-why-'));
+  const run = (args) =>
+    new Promise((resolve) => {
+      execFile(process.execPath, [BIN, ...args], { env: BASE, cwd: empty, timeout: 30000 }, (err, stdout, stderr) =>
+        resolve({ code: err && typeof err.code === 'number' ? err.code : err ? 1 : 0, stdout, stderr })
+      );
+    });
+
+  const index = await run(['--why']);
+  assert.equal(index.code, 0, index.stderr);
+  assert.match(index.stdout, /spacey-tmp/);
+
+  const one = await run(['--why', 'clean-env']);
+  assert.equal(one.code, 0, one.stderr);
+  assert.match(one.stdout, /It cannot/);
+  assert.match(one.stdout, /remove PATH/);
+
+  const all = await run(['--why', 'all']);
+  assert.equal(all.code, 0);
+  for (const id of ['tz', 'locale', 'home', 'color', 'narrow', 'ci', 'clean-env', 'spacey-tmp']) {
+    assert.ok(all.stdout.includes(`${id} — `), `${id} in --why all`);
+  }
+
+  const json = await run(['--why', '--json']);
+  assert.equal(json.code, 0);
+  const parsed = JSON.parse(json.stdout);
+  assert.equal(parsed.tool, 'otherbox');
+  assert.equal(parsed.environments.length, 8);
+  for (const env of parsed.environments) assert.ok(env.cannot.length > 0, `${env.id} has limits`);
+
+  const bad = await run(['--why', 'hom']);
+  assert.equal(bad.code, 2);
+  assert.match(bad.stderr, /Did you mean "home"\?/);
+});

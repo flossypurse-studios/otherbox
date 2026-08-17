@@ -6,6 +6,7 @@ const assert = require('node:assert');
 const { PERTURBATIONS, IDS, envFor, reproFor, CLEAN_ENV_KEEP, byId } = require('../src/perturbations');
 const { parseArgs, selectPerturbations, unknownId } = require('../src/cli');
 const { humanReport, jsonReport, listText, wrap } = require('../src/report');
+const { WHY, whyFor, whyText, whyIndex, whyAll, whyJson } = require('../src/why');
 const { tail } = require('../src/run');
 
 const ctx = { tempDir: (name) => `/tmp/fake/${name}` };
@@ -221,4 +222,82 @@ test('a flaky environment is reported as a flake, not as a property of the chang
   assert.deepEqual(data.flaky, ['tz']);
   assert.equal(data.environments[0].failures, 1);
   assert.equal(data.ok, false);
+});
+
+// --why: the claim and its limits ------------------------------------------
+
+test('every environment says what a pass proves AND what it cannot prove', () => {
+  for (const id of IDS) {
+    const entry = WHY[id];
+    assert.ok(entry, `${id} has a --why entry`);
+    assert.ok(Array.isArray(entry.proves) && entry.proves.length > 0, `${id} says what a pass proves`);
+    // The half that matters. A new environment cannot ship without one.
+    assert.ok(Array.isArray(entry.cannot) && entry.cannot.length > 0, `${id} says what it cannot prove`);
+    for (const line of [...entry.proves, ...entry.cannot]) {
+      assert.equal(typeof line, 'string');
+      assert.ok(line.trim().length > 30, `${id}: "${line}" is a real sentence`);
+    }
+  }
+});
+
+test('--why has no entries for environments that do not exist', () => {
+  for (const id of Object.keys(WHY)) assert.ok(IDS.includes(id), `${id} is a real environment`);
+});
+
+test('whyText names the environment, the change, and both halves', () => {
+  const { text } = whyText('locale');
+  assert.match(text, /^locale — a language that is not yours/);
+  assert.match(text, /changes: LANG=tr_TR\.UTF-8/);
+  assert.match(text, /A passing locale proves/);
+  assert.match(text, /It cannot/);
+  assert.ok(text.includes('One locale is one sample'));
+});
+
+test('whyText describes clean-env and ci in words, not as a fake assignment', () => {
+  assert.match(whyText('clean-env').text, /changes: every variable your shell contributed is removed/);
+  assert.match(whyText('ci').text, /changes: CI=1 if you do not have CI set/);
+});
+
+test('an unknown id is refused by naming the real ones', () => {
+  const found = whyFor('timezone');
+  assert.equal(found.ok, false);
+  assert.match(found.error, /unknown environment "timezone"/);
+  for (const id of IDS) assert.ok(found.error.includes(id), `${id} named`);
+});
+
+test('the --why index lists every environment and how to read the rest', () => {
+  const text = whyIndex();
+  for (const id of IDS) assert.ok(text.includes(id), `${id} in the index`);
+  assert.match(text, /otherbox --why all/);
+});
+
+test('--why all is every environment in run order', () => {
+  const text = whyAll();
+  const positions = IDS.map((id) => text.indexOf(`${id} — `));
+  for (const p of positions) assert.ok(p >= 0);
+  assert.deepEqual(positions.slice().sort((a, b) => a - b), positions);
+});
+
+test('whyJson carries the same content as data', () => {
+  const all = whyJson();
+  assert.deepEqual(all.environments.map((e) => e.id), IDS);
+  for (const env of all.environments) {
+    assert.deepEqual(env.proves, WHY[env.id].proves);
+    assert.deepEqual(env.cannot, WHY[env.id].cannot);
+    assert.equal(env.title, byId(env.id).title);
+  }
+  const one = whyJson(['tz']);
+  assert.equal(one.environments.length, 1);
+  assert.equal(one.environments[0].id, 'tz');
+});
+
+test('parseArgs reads --why with, without and glued to a value', () => {
+  assert.equal(parseArgs(['--why']).why, true);
+  assert.equal(parseArgs(['--why', 'tz']).why, 'tz');
+  assert.equal(parseArgs(['--why=tz']).why, 'tz');
+  assert.equal(parseArgs(['--why', '--json']).why, true);
+  assert.equal(parseArgs(['--why', '--json']).json, true);
+  assert.equal(parseArgs(['--why=all']).why, 'all');
+  assert.match(parseArgs(['--why=']).error, /--why needs an environment/);
+  assert.equal(parseArgs(['npm', 'test']).why, undefined);
 });

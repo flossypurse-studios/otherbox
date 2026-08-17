@@ -98,6 +98,7 @@
       <a class="btn ghost" href="#envs">The eight environments</a>
       <a class="btn ghost" href="#failure">Reading a failure</a>
       <a class="btn ghost" href="#repeat">Flake or finding?</a>
+      <a class="btn ghost" href="#worth">What a pass is worth</a>
       <a class="btn ghost" href="#ci">In CI</a>
       <a class="btn ghost" href="#limits">What it can't tell you</a>
       <a class="btn ghost" href="https://github.com/flossypurse-studios/otherbox">View on GitHub →</a>
@@ -155,6 +156,7 @@ otherbox --only tz,locale                 <span class="c-comment"># just these</
 otherbox --skip home,clean-env            <span class="c-comment"># all but these</span>
 otherbox --json                           <span class="c-comment"># machine-readable, for CI</span>
 otherbox --repeat 3                       <span class="c-comment"># each environment 3 times: flake or finding?</span>
+otherbox --why clean-env                  <span class="c-comment"># what a pass there proves — and what it does not</span>
 otherbox --list                           <span class="c-comment"># what each environment is and catches</span>
 otherbox --timeout 120                    <span class="c-comment"># seconds per run (default 600)</span></pre>
   <p class="muted"><b>Exit codes:</b> <code class="inline-code">0</code> every environment passed · <code class="inline-code">1</code> at least one failed or was flaky · <code class="inline-code">2</code> the command was wrong, or your suite already failed — or failed only sometimes — before anything was changed.</p>
@@ -221,6 +223,44 @@ more was flaky — failed some runs, passed others — which says nothing about 
     </div>
   </div>
   <p class="muted" style="margin-top:16px;">And if the <b>baseline</b> itself fails some runs and passes others, otherbox stops with exit 2 before any environment runs. A command that cannot agree with itself twice cannot have a failure attributed to anything. The exit code still counts a flake as something to look at — the report just refuses to blame a timezone for it.</p>
+</section>
+
+<section id="worth">
+  <h2>What a pass is worth <span style="color:var(--muted)">--why</span></h2>
+  <p>A green environment is a specific, narrow claim. <code class="inline-code">--why &lt;id&gt;</code> prints the claim <em>and</em> its limits, in the same words as <a href="#limits">What it can't tell you</a> — so the terminal and the docs cannot drift apart.</p>
+  <div class="term">
+    <div class="bar"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
+<pre><span class="c-muted">$</span> <span class="c-cmd">otherbox --why tz</span>
+<span class="c-acc">tz</span> — a clock that is not yours
+
+  changes: <span class="c-key">TZ=Pacific/Kiritimati</span>
+
+  <span class="c-green">A passing tz proves</span>
+    - your command passes with TZ set to a zone fourteen hours ahead of UTC,
+      where the local date is already tomorrow for most of your working day
+    - that nothing under test turns the process timezone into a different date,
+      ordering or format that an assertion then rejects
+
+  <span class="c-red">It cannot</span>
+    - prove the code is timezone-correct. One zone is one sample: a negative
+      offset, a half-hour offset (Asia/Kolkata is +05:30) and a DST boundary are
+      all unexercised — Kiritimati has no DST
+    - see a timezone that comes from anywhere but TZ — a config file, a database
+      session, a hard-coded "America/New_York", a browser
+    - move the clock. Only the zone changed; the instant is still now, so
+      nothing here tests a date in the past or the future</pre>
+  </div>
+  <div class="grid" style="margin-top:20px;">
+    <div class="card">
+      <h3>It answers in an empty directory</h3>
+      <p><code>--why</code> reads no files and starts no processes — no project, no command, no temp directory. You can read what a run would be worth before you have anything to run.</p>
+    </div>
+    <div class="card">
+      <h3>The limits are not optional</h3>
+      <p>A test fails if any environment lacks a non-empty <code>It cannot</code> list. A ninth environment cannot ship without someone writing down what it fails to prove.</p>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:16px;"><code class="inline-code">otherbox --why</code> on its own lists the eight environments, <code class="inline-code">--why all</code> prints every one in full, and <code class="inline-code">--why --json</code> is the same content as data. An unknown id is refused by naming the real ones.</p>
 </section>
 
 <section id="ci">

@@ -3,6 +3,7 @@
 const { PERTURBATIONS, IDS, envFor, reproFor } = require('./perturbations');
 const { runCommand, tail, makeTempFactory } = require('./run');
 const { humanReport, jsonReport, listText } = require('./report');
+const { whyFor, whyText, whyIndex, whyAll, whyJson } = require('./why');
 
 const VERSION = require('../package.json').version;
 
@@ -18,6 +19,8 @@ Options:
   --only <ids>        run only these environments (comma separated)
   --skip <ids>        run all but these
   --list              list the environments and what each one catches
+  --why [id]          what a pass in an environment proves, and what it does
+                      not. Reads nothing, runs nothing; "all" prints every one
   --json              machine-readable report on stdout
   --repeat <n>        run each environment n times; a run that fails some of
                       the time is reported as flaky, not as a finding (default 1)
@@ -86,6 +89,19 @@ function parseArgs(argv) {
     if (flag === '-h' || flag === '--help') opts.help = true;
     else if (flag === '-v' || flag === '--version') opts.version = true;
     else if (flag === '--list') opts.list = true;
+    else if (flag === '--why') {
+      if (inline !== null) {
+        if (inline === '') return { error: `--why needs an environment, or nothing at all. Known: ${IDS.join(', ')}, all.` };
+        opts.why = inline;
+      } else {
+        const next = argv[i + 1];
+        if (next === undefined || next.startsWith('-')) opts.why = true;
+        else {
+          opts.why = next;
+          i += 1;
+        }
+      }
+    }
     else if (flag === '--json') opts.json = true;
     else if (flag === '--only' || flag === '--skip') {
       const value = takeValue();
@@ -122,6 +138,28 @@ function parseArgs(argv) {
   return opts;
 }
 
+// --why is documentation, not a run: it reads no package.json, starts no
+// process and needs no project, so it answers the same way in an empty
+// directory as it does in yours.
+function whyCommand(opts, out, err) {
+  if (opts.why === true) {
+    out(opts.json ? `${JSON.stringify(whyJson(), null, 2)}\n` : whyIndex());
+    return 0;
+  }
+  if (opts.why === 'all') {
+    out(opts.json ? `${JSON.stringify(whyJson(), null, 2)}\n` : whyAll());
+    return 0;
+  }
+  const found = whyFor(opts.why);
+  if (!found.ok) {
+    // Refused exactly the way --only refuses a typo, with the same hint.
+    err(`otherbox: ${unknownId(String(opts.why))}\n`);
+    return 2;
+  }
+  out(opts.json ? `${JSON.stringify(whyJson([found.id]), null, 2)}\n` : whyText(found.id).text);
+  return 0;
+}
+
 function selectPerturbations(opts) {
   if (opts.only.length) return PERTURBATIONS.filter((p) => opts.only.includes(p.id));
   if (opts.skip.length) return PERTURBATIONS.filter((p) => !opts.skip.includes(p.id));
@@ -147,6 +185,9 @@ async function main(argv, io = {}) {
   if (opts.version) {
     out(`${VERSION}\n`);
     return 0;
+  }
+  if (opts.why !== undefined) {
+    return whyCommand(opts, out, err);
   }
   if (opts.list) {
     out(listText());

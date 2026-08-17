@@ -1,6 +1,6 @@
 {
   "name": "otherbox",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Runs your tests on a box that isn't yours — one thing different at a time.",
   "bin": {
     "otherbox": "bin/otherbox.js"
