@@ -1,0 +1,43 @@
+{
+  "name": "otherbox",
+  "version": "0.1.0",
+  "description": "Runs your tests on a box that isn't yours — one thing different at a time.",
+  "bin": {
+    "otherbox": "bin/otherbox.js"
+  },
+  "main": "src/cli.js",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "test",
+    "environment",
+    "timezone",
+    "locale",
+    "ci",
+    "hermetic",
+    "reproducible",
+    "cli",
+    "flaky"
+  ],
+  "author": "flossy-studio",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flossypurse-studios/otherbox.git"
+  },
+  "homepage": "https://github.com/flossypurse-studios/otherbox#readme",
+  "bugs": {
+    "url": "https://github.com/flossypurse-studios/otherbox/issues"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}
