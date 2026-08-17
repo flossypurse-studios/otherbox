@@ -2,6 +2,8 @@
 
 **Your tests pass. On your machine.**
 
+[Site](https://otherbox-site.vercel.app) · [npm](https://www.npmjs.com/package/otherbox) · [Changelog](CHANGELOG.md)
+
 `otherbox` runs your test command once as-is, then once per environment that differs from
 yours by exactly one thing — a timezone, a locale, an empty home directory, a temp path with
 a space in it — and tells you which single change turned it red, with the line to reproduce it.
