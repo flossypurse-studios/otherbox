@@ -47,21 +47,34 @@ function humanReport(result) {
   const rows = [{ id: 'baseline', label: 'your environment, unchanged', ...result.baseline }, ...result.results];
   const idWidth = Math.max(...rows.map((r) => r.id.length));
   for (const row of rows) {
-    const verdict = row.ok ? 'pass' : row.flaky ? 'flaky' : row.timedOut ? 'TIMEOUT' : 'FAIL';
+    const verdict = row.skipped ? 'skip' : row.ok ? 'pass' : row.flaky ? 'flaky' : row.timedOut ? 'TIMEOUT' : 'FAIL';
     out.push(`  ${pad(row.id, idWidth)}  ${pad(verdict, 8)}${pad(seconds(row.ms), 8)}${row.label || row.title}`);
   }
   out.push('');
 
-  const failed = result.results.filter((r) => !r.ok);
+  const tested = result.results.filter((r) => !r.skipped);
+  const skipped = result.results.filter((r) => r.skipped);
+  const failed = tested.filter((r) => !r.ok);
   const repeat = result.repeat || 1;
   const each = repeat === 1 ? '' : `, ${repeat} runs each`;
-  const total = result.results.length;
+  const total = tested.length;
   const plural = total === 1 ? '' : 's';
+  const skipNote = skipped.length
+    ? ` ${skipped.length} environment${skipped.length === 1 ? '' : 's'} skipped: ${skipped
+        .map((r) => `${r.id} (${r.reason})`)
+        .join('; ')}`
+    : '';
   if (failed.length === 0) {
     out.push(
-      total === 1
-        ? `The one environment passes${each}. Nothing here depends on this machine.`
-        : `All ${total} environments pass${each}. Nothing here depends on this machine.`
+      wrap(
+        (total === 1
+          ? `The one environment tested passes${each}. Nothing here depends on this machine.`
+          : total === 0
+          ? `No environment could be tested.`
+          : `All ${total} environments tested pass${each}. Nothing here depends on this machine.`) + skipNote,
+        90,
+        ''
+      )
     );
     out.push('');
     return out.join('\n');
@@ -86,7 +99,7 @@ function humanReport(result) {
     out.push(
       wrap(
         `${solid.length} of ${total} environment${plural} failed${repeat > 1 ? ' every run' : ''}. ` +
-          `Your suite passes here and would not pass there.` + alsoFlaky,
+          `Your suite passes here and would not pass there.` + alsoFlaky + skipNote,
         90,
         ''
       )
@@ -126,25 +139,36 @@ function jsonReport(result) {
         runs: result.baseline.runs || 1,
         failures: result.baseline.failures || 0,
       },
-      environments: result.results.map((r) => ({
-        id: r.id,
-        title: r.title,
-        ok: r.ok,
-        flaky: Boolean(r.flaky),
-        runs: r.runs || 1,
-        failures: r.failures || (r.ok ? 0 : 1),
-        ms: r.ms,
-        code: r.code,
-        timedOut: r.timedOut,
-        set: r.set,
-        unset: r.unset,
-        repro: r.repro,
-        catches: r.catches,
-        tail: r.ok ? [] : r.tail,
-      })),
-      failed: result.results.filter((r) => !r.ok && !r.flaky).map((r) => r.id),
-      flaky: result.results.filter((r) => r.flaky).map((r) => r.id),
-      ok: result.results.every((r) => r.ok),
+      environments: result.results.map((r) =>
+        r.skipped
+          ? {
+              id: r.id,
+              title: r.title,
+              catches: r.catches,
+              skipped: true,
+              reason: r.reason,
+            }
+          : {
+              id: r.id,
+              title: r.title,
+              ok: r.ok,
+              flaky: Boolean(r.flaky),
+              runs: r.runs || 1,
+              failures: r.failures || (r.ok ? 0 : 1),
+              ms: r.ms,
+              code: r.code,
+              timedOut: r.timedOut,
+              set: r.set,
+              unset: r.unset,
+              repro: r.repro,
+              catches: r.catches,
+              tail: r.ok ? [] : r.tail,
+            }
+      ),
+      failed: result.results.filter((r) => !r.skipped && !r.ok && !r.flaky).map((r) => r.id),
+      flaky: result.results.filter((r) => !r.skipped && r.flaky).map((r) => r.id),
+      skipped: result.results.filter((r) => r.skipped).map((r) => r.id),
+      ok: result.results.filter((r) => !r.skipped).every((r) => r.ok),
     },
     null,
     2

@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('node:path');
+
 // Every perturbation changes exactly ONE thing about the environment a command
 // runs in — the kind of thing that differs between your laptop and someone
 // else's, or between your laptop and CI. Nothing else moves. If the command
@@ -119,6 +121,32 @@ const PERTURBATIONS = [
       return { set: { TMPDIR: dir, TMP: dir, TEMP: dir }, unset: [] };
     },
   },
+  {
+    id: 'node',
+    title: 'a different Node, if one is parked nearby',
+    catches:
+      'behaviour that only holds on the exact Node version whoever wrote the test happened to ' +
+      'have installed: a syntax feature, a Buffer or Intl default, a dependency that shipped a ' +
+      'native build for one ABI. Finds whatever second Node is already on this machine (PATH, ' +
+      'nvm, or n); it is not a version matrix and cannot invent one that is not installed.',
+    plan(env, ctx) {
+      const found = ctx && typeof ctx.findSecondNode === 'function' ? ctx.findSecondNode() : null;
+      if (!found) {
+        return {
+          skip:
+            'no second Node was found on PATH, in nvm, or under /usr/local/n/versions/node on ' +
+            'this machine \u2014 there is nothing else installed to run your command under.',
+        };
+      }
+      const dir = path.dirname(found.path);
+      return {
+        set: { PATH: dir + path.delimiter + (env.PATH || '') },
+        unset: [],
+        displaySet: { PATH: dir + path.delimiter + '$PATH' },
+        meta: { node: found },
+      };
+    },
+  },
 ];
 
 const IDS = PERTURBATIONS.map((p) => p.id);
@@ -130,20 +158,20 @@ function byId(id) {
 // Applies a plan to a base environment. Pure: returns a new object.
 function envFor(plan, baseEnv) {
   const env = { ...baseEnv };
-  for (const key of plan.unset) delete env[key];
-  for (const [key, value] of Object.entries(plan.set)) env[key] = value;
+  for (const key of plan.unset || []) delete env[key];
+  for (const [key, value] of Object.entries(plan.set || {})) env[key] = value;
   return env;
 }
 
 function quote(value) {
-  return /^[A-Za-z0-9_./:@%+=-]+$/.test(value) ? value : `'${String(value).replace(/'/g, `'\\''`)}'`;
+  return /^[A-Za-z0-9_./:@%+=$-]+$/.test(value) ? value : `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
 // The line a human can paste to see the same failure themselves.
 function reproFor(plan, command) {
   const parts = [];
   const unset = plan.unset;
-  const set = Object.entries(plan.set);
+  const set = Object.entries(plan.displaySet || plan.set);
   if (unset.length > 3) {
     // Too many to list one by one; env -i with an allowlist says it in one line.
     parts.push('env -i ' + ['PATH', 'HOME', 'TMPDIR'].map((k) => `${k}="${k}"`).join(' '));

@@ -47,7 +47,19 @@ test('--list works without running anything at all', async () => {
 test('a command that survives every environment exits 0', async () => {
   const r = await otherbox(['--', ...fixture('always-pass.js')]);
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /environments pass/);
+  assert.match(r.stdout, /environments? tested pass/);
+});
+
+test('the node environment either finds a second Node or honestly says it skipped', async () => {
+  const r = await otherbox(['--only', 'node', '--', ...fixture('always-pass.js')]);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /node\s+(pass|skip)/);
+  if (/node\s+skip/.test(r.stdout)) {
+    assert.match(r.stdout, /no second Node was found/);
+    assert.match(r.stdout, /No environment could be tested\.|environment.*skipped/);
+  } else {
+    assert.match(r.stdout, /reproduce: PATH=.*\$PATH/);
+  }
 });
 
 test('a suite that already fails is refused with exit 2, not perturbed', async () => {
@@ -187,7 +199,7 @@ test('--why answers in an empty directory, without running anything', async () =
 
   const all = await run(['--why', 'all']);
   assert.equal(all.code, 0);
-  for (const id of ['tz', 'locale', 'home', 'color', 'narrow', 'ci', 'clean-env', 'spacey-tmp']) {
+  for (const id of ['tz', 'locale', 'home', 'color', 'narrow', 'ci', 'clean-env', 'spacey-tmp', 'node']) {
     assert.ok(all.stdout.includes(`${id} — `), `${id} in --why all`);
   }
 
@@ -195,7 +207,7 @@ test('--why answers in an empty directory, without running anything', async () =
   assert.equal(json.code, 0);
   const parsed = JSON.parse(json.stdout);
   assert.equal(parsed.tool, 'otherbox');
-  assert.equal(parsed.environments.length, 8);
+  assert.equal(parsed.environments.length, 9);
   for (const env of parsed.environments) assert.ok(env.cannot.length > 0, `${env.id} has limits`);
 
   const bad = await run(['--why', 'hom']);

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0 — 2026-08-17
+A ninth environment: `node`, a second Node if this machine happens to have one.
+
+- New environment `node`: prepends `PATH` with the bin directory of a second Node found on
+  PATH, in nvm, or under `/usr/local/n/versions/node` — the machine can have more than one
+  Node installed without ever putting the other one first, and this runs your command under
+  it. This is the exact bug that started otherbox (see 0.1.0): a GitHub Actions runner keeps
+  a second Node under `/usr/local/n` that a test on a single-Node box never sees.
+- **It is deliberately not a version matrix.** It runs whichever second Node it finds first
+  — one sample, not the range in `engines.node` — and it never downloads or invents one.
+- **Honest skip, not a silent pass.** On a machine with only one Node (this box has exactly
+  one), `node` is reported as `skip` with the reason named, counted in neither `failed` nor
+  `pass`, and excluded from the "N environments tested" total. `--json` gets a top-level
+  `skipped` array and a `skipped: true` entry per environment; a skip never sets the exit
+  code to 1 on its own.
+- README's "Honest limitations" no longer claims otherbox does not touch the Node version —
+  that was true through 0.3.0 and is not true now. It says instead what `node` can and
+  cannot do, in the same words `otherbox --why node` prints.
+- `src/node-finder.js` is a new, fully-injectable module (env, execPath, platform, fs, exec
+  are all parameters) so its tests never touch this machine's real filesystem or PATH — the
+  skip path and the found path are both exercised without assuming which one a given machine
+  is in. One additional test does touch the real machine, and only asserts the *shape* of
+  the answer (`null`, or a real path and a `vX.Y.Z` version), never which one it is.
+
 ## 0.3.0 — 2026-08-17
 `--why <id>`: what a pass in an environment actually proves, and what it does not.
 

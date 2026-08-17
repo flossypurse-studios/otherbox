@@ -26,6 +26,12 @@ test('a plan changes only what it names, and never mutates the base env', () => 
   const base = Object.freeze({ PATH: '/bin', KEEP: 'yes', CI: '' });
   for (const p of PERTURBATIONS) {
     const plan = p.plan(base, ctx);
+    if (plan.skip) {
+      // A skipped environment changes nothing at all — that is the point.
+      assert.equal(typeof plan.skip, 'string');
+      assert.ok(plan.skip.length > 10, `${p.id} names a real reason to skip`);
+      continue;
+    }
     const env = envFor(plan, base);
     assert.notStrictEqual(env, base);
     assert.equal(base.KEEP, 'yes');
@@ -35,6 +41,32 @@ test('a plan changes only what it names, and never mutates the base env', () => 
     }
     assert.ok(env.PATH === '/bin' || touched.has('PATH'), `${p.id} keeps PATH unless it says otherwise`);
   }
+});
+
+test('the node environment prepends the found Node\u2019s directory to PATH, and skips honestly when there is none', () => {
+  const base = { PATH: '/bin', HOME: '/home/me' };
+  const found = { path: '/opt/node20/bin/node', version: 'v20.11.0' };
+  const withNode = { tempDir: ctx.tempDir, findSecondNode: () => found };
+  const plan = byId('node').plan(base, withNode);
+  assert.deepEqual(plan.set, { PATH: '/opt/node20/bin' + require('node:path').delimiter + '/bin' });
+  assert.match(plan.displaySet.PATH, /^\/opt\/node20\/bin.\$PATH$/);
+  assert.equal(plan.unset.length, 0);
+
+  const withoutNode = { tempDir: ctx.tempDir, findSecondNode: () => null };
+  const skipped = byId('node').plan(base, withoutNode);
+  assert.equal(typeof skipped.skip, 'string');
+  assert.match(skipped.skip, /no second Node/);
+  assert.equal(skipped.set, undefined);
+
+  const noFinderAtAll = byId('node').plan(base, { tempDir: ctx.tempDir });
+  assert.equal(typeof noFinderAtAll.skip, 'string');
+});
+
+test('the node repro line prepends the directory and lets $PATH expand, not the real PATH', () => {
+  const found = { path: '/opt/node20/bin/node', version: 'v20.11.0' };
+  const plan = byId('node').plan({ PATH: '/bin' }, { tempDir: ctx.tempDir, findSecondNode: () => found });
+  const repro = reproFor(plan, ['npm', 'test']);
+  assert.equal(repro, 'PATH=/opt/node20/bin:$PATH npm test');
 });
 
 test('tz, locale, colour and width set exactly the variable they are named for', () => {
@@ -160,7 +192,7 @@ test('a clean run says so without ceremony', () => {
     baseline: { ok: true, ms: 10, code: 0 },
     results: [{ id: 'tz', title: 't', catches: 'c', set: {}, unset: [], repro: 'r', ok: true, ms: 10, code: 0, timedOut: false, tail: [] }],
   });
-  assert.match(text, /The one environment passes/);
+  assert.match(text, /The one environment tested passes/);
 });
 
 test('the json report is parseable and carries the failing ids', () => {

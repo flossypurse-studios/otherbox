@@ -22,8 +22,10 @@ otherbox — one thing different at a time
   ci          pass    6.2s    the other side of the CI branch
   clean-env   FAIL    6.0s    none of your shell
   spacey-tmp  pass    6.1s    a temp path with a space in it
+  node        skip    0.0s    a different Node, if one is parked nearby
 
-2 of 8 environments failed. Your suite passes here and would not pass there.
+2 of 8 environments tested failed. Your suite passes here and would not pass there.
+1 environment skipped: node (no second Node was found on this machine).
 
 tz — a clock that is not yours
   catches: dates formatted, parsed or compared in whatever timezone the machine
@@ -40,7 +42,7 @@ No config, no plugin, no framework integration: it spawns your command, so it wo
 ## Install
 
 ```sh
-npx otherbox              # runs npm test in eight environments
+npx otherbox              # runs npm test in nine environments
 npm i -D otherbox         # or keep it in the project
 ```
 
@@ -78,6 +80,7 @@ Each one changes **one** thing. Nothing else moves, so a failure has exactly one
 | `ci` | `CI` flipped to whichever it is not | code and tests that branch on `CI` — the branch you never take where you can see the output. |
 | `clean-env` | everything but a small allowlist removed | what your shell quietly hands the suite: `NODE_ENV`, `npm_config_*`, proxies, a token in your profile. |
 | `spacey-tmp` | `TMPDIR` = a path containing a space | paths interpolated into shell commands without quotes; anything assuming a temp path is one word. |
+| `node` | `PATH` prepended with a second Node's bin dir, if one is found nearby | behaviour that only holds on the exact Node version you happen to have installed. Skipped, honestly, if this machine has only one. |
 
 `clean-env` keeps only `PATH`, `HOME`, `TMPDIR`/`TMP`/`TEMP`, `SHELL`, `USER`, `LOGNAME`,
 `PWD`, `TERM`, `LANG` and the handful of variables Windows needs to start a process.
@@ -132,12 +135,12 @@ tz — a clock that is not yours
     ...
 ```
 
-`otherbox --why` on its own lists the eight environments, `--why all` prints every one in
+`otherbox --why` on its own lists the nine environments, `--why all` prints every one in
 full, and `--why --json` is the same content as data. It reads no files and starts no
 processes: it answers in an empty directory, before there is a project to test.
 
 Every environment must have a non-empty **It cannot** list — a test fails if one does not, so
-a ninth environment cannot ship without someone writing down what it fails to prove.
+a tenth environment cannot ship without someone writing down what it fails to prove.
 
 ## In CI
 
@@ -154,9 +157,15 @@ Or gate on a subset you have already cleaned: `npx otherbox --only tz,clean-env`
   deterministic and one-variable-at-a-time, so without `--repeat` a test that fails at random
   looks like a failure of whichever environment it landed on. `--repeat <n>` is the answer to
   that question, not a way of hunting flakes generally.
-- **It only changes the environment.** Not the OS, not the filesystem case-sensitivity, not
-  the CPU architecture, not the Node version, not the network. A green `otherbox` does not
-  mean your suite passes everywhere — it means it does not depend on these eight things.
+- **It only changes the environment, and `node` is not a version matrix.** Not the OS, not
+  the filesystem case-sensitivity, not the CPU architecture, not the network. `node` is the
+  one perturbation that reaches outside the environment, and it is limited on purpose: it
+  looks for a second Node already installed nearby (PATH, nvm, `/usr/local/n`) and runs your
+  command under whichever one it finds first — one sample of one other version, not a range,
+  and never a version it downloads or invents. On a machine with only one Node it is skipped,
+  reported by name, and never counted as a pass. A green `otherbox` does not mean your suite
+  passes everywhere — it means it does not depend on these nine things, one of which may not
+  have run at all.
 - **A failure is not always a bug in the test.** `clean-env` failing may mean your suite
   genuinely needs a secret. Then the finding is "this suite cannot run on a clean checkout",
   which is worth knowing and worth writing down.

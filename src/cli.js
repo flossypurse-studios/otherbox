@@ -4,6 +4,7 @@ const { PERTURBATIONS, IDS, envFor, reproFor } = require('./perturbations');
 const { runCommand, tail, makeTempFactory } = require('./run');
 const { humanReport, jsonReport, listText } = require('./report');
 const { whyFor, whyText, whyIndex, whyAll, whyJson } = require('./why');
+const { findSecondNode } = require('./node-finder');
 
 const VERSION = require('../package.json').version;
 
@@ -196,6 +197,17 @@ async function main(argv, io = {}) {
 
   const chosen = selectPerturbations(opts);
   const temp = (io.temp || makeTempFactory)();
+  let nodeCache;
+  const hasNodeCache = { done: false };
+  temp.findSecondNode =
+    io.findSecondNode ||
+    (() => {
+      if (!hasNodeCache.done) {
+        nodeCache = findSecondNode({ env: baseEnv });
+        hasNodeCache.done = true;
+      }
+      return nodeCache;
+    });
   const results = [];
   let exitCode = 0;
   try {
@@ -239,6 +251,18 @@ async function main(argv, io = {}) {
 
     for (const p of chosen) {
       const plan = p.plan(baseEnv, temp);
+      if (plan.skip) {
+        results.push({
+          id: p.id,
+          title: p.title,
+          catches: p.catches,
+          skipped: true,
+          reason: plan.skip,
+          ms: 0,
+        });
+        if (!opts.json) err(`  skip  ${p.id} \u2014 ${plan.skip}\n`);
+        continue;
+      }
       const env = envFor(plan, baseEnv);
       const result = await repeatedly(env);
       results.push({

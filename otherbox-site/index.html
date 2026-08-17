@@ -95,7 +95,7 @@
     </div>
     <div class="cta">
       <a class="btn primary" href="#install">Install</a>
-      <a class="btn ghost" href="#envs">The eight environments</a>
+      <a class="btn ghost" href="#envs">The nine environments</a>
       <a class="btn ghost" href="#failure">Reading a failure</a>
       <a class="btn ghost" href="#repeat">Flake or finding?</a>
       <a class="btn ghost" href="#worth">What a pass is worth</a>
@@ -120,8 +120,9 @@
   <span class="c-muted">ci        </span>  <span class="c-green">pass</span>    <span class="c-muted">6.2s    the other side of the CI branch</span>
   <span class="c-acc">clean-env </span>  <span class="c-red">FAIL</span>    <span class="c-muted">6.0s    none of your shell</span>
   <span class="c-muted">spacey-tmp</span>  <span class="c-green">pass</span>    <span class="c-muted">6.1s    a temp path with a space in it</span>
+  <span class="c-muted">node      </span>  <span class="c-muted">skip</span>    <span class="c-muted">0.0s    a different Node, if one is parked nearby</span>
 
-<span class="c-red">2 of 8 environments failed.</span> <span class="c-cmd">Your suite passes here and would not pass there.</span></pre>
+<span class="c-red">2 of 8 environments tested failed.</span> <span class="c-cmd">Your suite passes here and would not pass there.</span> <span class="c-muted">1 environment skipped: node.</span></pre>
     </div>
   </div>
 </header>
@@ -135,7 +136,7 @@
   <div class="grid">
     <div class="card">
       <h3>It spawns your command</h3>
-      <p>No plugin, no framework integration, no config file. <code>npm test</code>, <code>pytest</code>, <code>go test ./...</code>, <code>make check</code> — if a shell can run it, otherbox can run it eight more times.</p>
+      <p>No plugin, no framework integration, no config file. <code>npm test</code>, <code>pytest</code>, <code>go test ./...</code>, <code>make check</code> — if a shell can run it, otherbox can run it nine more times.</p>
     </div>
     <div class="card">
       <h3>It refuses to guess</h3>
@@ -146,7 +147,7 @@
 
 <section id="install">
   <h2>Install</h2>
-<pre class="block">npx otherbox              <span class="c-comment"># runs npm test in eight environments</span>
+<pre class="block">npx otherbox              <span class="c-comment"># runs npm test in nine environments</span>
 npm i -D otherbox         <span class="c-comment"># or keep it in the project</span></pre>
   <p class="muted">Requires Node 18.17+. Zero dependencies.</p>
   <h3>Use</h3>
@@ -163,7 +164,7 @@ otherbox --timeout 120                    <span class="c-comment"># seconds per 
 </section>
 
 <section id="envs">
-  <h2>The eight environments</h2>
+  <h2>The nine environments</h2>
   <p>Each one changes <b>one</b> thing. Nothing else moves.</p>
   <table>
     <tr><th>id</th><th>one thing different</th><th>what it catches</th></tr>
@@ -175,6 +176,7 @@ otherbox --timeout 120                    <span class="c-comment"># seconds per 
     <tr><td><code>ci</code></td><td class="desc"><code>CI</code> flipped to whichever it is not</td><td class="desc">code and tests that branch on <code>CI</code> — the branch you never take where you can see the output.</td></tr>
     <tr><td><code>clean-env</code></td><td class="desc">everything but a small allowlist removed</td><td class="desc">what your shell quietly hands the suite: <code>NODE_ENV</code>, <code>npm_config_*</code>, proxies, a token in your profile.</td></tr>
     <tr><td><code>spacey-tmp</code></td><td class="desc"><code>TMPDIR</code> = a path containing a space</td><td class="desc">paths interpolated into shell commands without quotes; anything assuming a temp path is one word.</td></tr>
+    <tr><td><code>node</code></td><td class="desc"><code>PATH</code> prepended with a second Node's bin dir, if one is found nearby</td><td class="desc">behaviour that only holds on the exact Node version you happen to have installed. Skipped, honestly, if this machine has only one.</td></tr>
   </table>
   <p class="muted" style="margin-top:14px;"><code class="inline-code">clean-env</code> keeps only <code class="inline-code">PATH</code>, <code class="inline-code">HOME</code>, <code class="inline-code">TMPDIR</code>/<code class="inline-code">TMP</code>/<code class="inline-code">TEMP</code>, <code class="inline-code">SHELL</code>, <code class="inline-code">USER</code>, <code class="inline-code">LOGNAME</code>, <code class="inline-code">PWD</code>, <code class="inline-code">TERM</code>, <code class="inline-code">LANG</code> and the handful of variables Windows needs to start a process.</p>
 </section>
@@ -257,10 +259,10 @@ more was flaky — failed some runs, passed others — which says nothing about 
     </div>
     <div class="card">
       <h3>The limits are not optional</h3>
-      <p>A test fails if any environment lacks a non-empty <code>It cannot</code> list. A ninth environment cannot ship without someone writing down what it fails to prove.</p>
+      <p>A test fails if any environment lacks a non-empty <code>It cannot</code> list. A tenth environment cannot ship without someone writing down what it fails to prove.</p>
     </div>
   </div>
-  <p class="muted" style="margin-top:16px;"><code class="inline-code">otherbox --why</code> on its own lists the eight environments, <code class="inline-code">--why all</code> prints every one in full, and <code class="inline-code">--why --json</code> is the same content as data. An unknown id is refused by naming the real ones.</p>
+  <p class="muted" style="margin-top:16px;"><code class="inline-code">otherbox --why</code> on its own lists the nine environments, <code class="inline-code">--why all</code> prints every one in full, and <code class="inline-code">--why --json</code> is the same content as data. An unknown id is refused by naming the real ones.</p>
 </section>
 
 <section id="ci">
@@ -277,7 +279,7 @@ more was flaky — failed some runs, passed others — which says nothing about 
   <p>The same list is in the README, and it is deliberately the first thing you read there too.</p>
   <ul>
     <li><b>It is not a flake detector, but it will not pretend a flake is a finding.</b> Each run is deterministic and one-variable-at-a-time, so without <code class="inline-code">--repeat</code> a test that fails at random looks like a failure of whichever environment it landed on. <code class="inline-code">--repeat &lt;n&gt;</code> is the answer to that question, not a way of hunting flakes generally.</li>
-    <li><b>It only changes the environment.</b> Not the OS, not filesystem case-sensitivity, not the CPU architecture, not the Node version, not the network. A green otherbox does not mean your suite passes everywhere — it means it does not depend on these eight things.</li>
+    <li><b>It only changes the environment, and <code class="inline-code">node</code> is not a version matrix.</b> Not the OS, not filesystem case-sensitivity, not the CPU architecture, not the network. <code class="inline-code">node</code> reaches outside the environment on purpose but stays honest about it: it runs your command under whichever second Node it finds already installed nearby — one sample, not a range, never downloaded or invented — and is skipped, reported by name, on a machine with only one Node. A green otherbox does not mean your suite passes everywhere — it means it does not depend on these nine things, one of which may not have run at all.</li>
     <li><b>A failure is not always a bug in the test.</b> <code class="inline-code">clean-env</code> failing may mean your suite genuinely needs a secret. Then the finding is "this suite cannot run on a clean checkout", which is worth knowing and worth writing down.</li>
     <li><b>It runs your command N+1 times.</b> On a slow suite that is real wall-clock time; use <code class="inline-code">--only</code>, or run it nightly rather than per-commit.</li>
     <li><b><code class="inline-code">locale</code> sets the variables, not the OS locale data.</b> Node's <code class="inline-code">Intl</code> follows <code class="inline-code">LC_ALL</code> regardless, which is what most JavaScript locale bugs turn on; a program that shells out to a C library may need that locale installed to show the same behaviour.</li>

@@ -120,6 +120,19 @@ const WHY = {
       'catch code that ignores TMPDIR and writes to a hard-coded /tmp, which is most of the code that gets this wrong on Windows',
     ],
   },
+  node: {
+    changes:
+      'PATH is prepended with the bin directory of a second Node found on this machine, if any \u2014 the rest of the environment is untouched',
+    proves: [
+      'your command passes under a Node that is not the one otherbox itself is running on, if this machine happens to have one installed already (found on PATH, in nvm, or under n)',
+      'that nothing under test hard-codes a syntax feature, a Buffer or Intl default, or a native module build that only the other Node happens to have',
+    ],
+    cannot: [
+      'be a version matrix. It runs whatever second Node is already installed nearby \u2014 one sample of one other version, not the range in your engines field, and not a version it can download or invent',
+      'run at all on a machine with only one Node. There is nothing to compare against, so this environment is skipped and says so by name \u2014 a skip is not a pass, and otherbox never reports one as if it were',
+      'tell you which Node it found, or that it is a newer one rather than an older one, without you reading the reproduce line \u2014 the version otherbox picks is whichever it finds first, not the one you would have chosen',
+    ],
+  },
 };
 
 /** The one-line description of an environment, reused from its perturbation. */
@@ -150,12 +163,12 @@ function whyText(id) {
   if (!found.ok) return found;
   const p = byId(found.id);
   const plan = p.plan({}, { tempDir: (name) => `/tmp/…/${name}` });
-  const set = Object.entries(plan.set).map(([k, v]) => `${k}=${v}`);
+  const set = Object.entries(plan.set || {}).map(([k, v]) => `${k}=${v}`);
   const changes = found.entry.changes
     ? found.entry.changes
     : set.length
     ? set.join(' ')
-    : plan.unset.length
+    : (plan.unset || []).length
       ? `unsets ${plan.unset.join(', ')}`
       : 'depends on your environment';
   const text =
