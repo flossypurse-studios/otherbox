@@ -58,7 +58,8 @@ test('the node environment either finds a second Node or honestly says it skippe
     assert.match(r.stdout, /no second Node was found/);
     assert.match(r.stdout, /No environment could be tested\.|environment.*skipped/);
   } else {
-    assert.match(r.stdout, /reproduce: PATH=.*\$PATH/);
+    // A pass never gets a reproduce block \u2014 only the failures section does.
+    assert.match(r.stdout, /The one environment tested passes/);
   }
 });
 
