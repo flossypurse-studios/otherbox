@@ -185,7 +185,7 @@ code, .mono-num { font-family: var(--font-mono); font-variant-numeric: tabular-n
 
 /* ---------- hero ---------- */
 
-.hero { padding: 3.25rem 0 var(--section-y); border-top: 0; }
+.hero { padding: 3.25rem 0 2.25rem; border-top: 0; }
 .hero .lead, .tagline {
   font-size: var(--lead); color: var(--fg-dim);
   margin: 1.5rem 0 0; max-width: var(--measure);
@@ -211,6 +211,34 @@ code, .mono-num { font-family: var(--font-mono); font-variant-numeric: tabular-n
 }
 .btn.primary:hover, .btn-primary:hover { background: var(--fg); border-color: var(--fg); color: #fff; }
 .btn.ghost { background: transparent; }
+
+/* ---------- jump row ----------
+   Two of these sites open with a dozen links to their own sections. As buttons
+   they read as a wall of equal-weight calls to action, which is a lie — there is
+   one call to action and the rest is a table of contents. Set them as mono chips
+   so the eye sorts them in one pass instead of reading thirteen decisions. */
+.jump {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  margin-top: 1.5rem; max-width: 46rem;
+}
+.jump a {
+  font-family: var(--font-mono);
+  font-size: var(--micro);
+  color: var(--fg-dim);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.32rem 0.6rem;
+  background: var(--surface);
+  white-space: nowrap;
+}
+.jump a:hover { border-color: var(--accent); color: var(--accent-ink); }
+.jump-label {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-mono); font-size: var(--micro);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-mute);
+  flex-basis: 100%;
+}
 
 /* ---------- sections ---------- */
 
@@ -437,15 +465,18 @@ td.hl, td .hl { color: var(--accent-ink); font-weight: 600; }
         <a href="https://github.com/flossypurse-studios/otherbox"><img src="https://img.shields.io/badge/deps-zero-4a4f58" alt="zero dependencies"></a>
       </div>
       <div class="cta-row">
-        <a class="btn primary" href="#install">Install</a>
-        <a class="btn ghost" href="#envs">The nine environments</a>
-        <a class="btn ghost" href="#failure">Reading a failure</a>
-        <a class="btn ghost" href="#repeat">Flake or finding?</a>
-        <a class="btn ghost" href="#worth">What a pass is worth</a>
-        <a class="btn ghost" href="#ci">In CI</a>
-        <a class="btn ghost" href="#limits">What it can't tell you</a>
-        <a class="btn ghost" href="https://github.com/flossypurse-studios/otherbox">View on GitHub →</a>
-      </div>
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn ghost" href="https://github.com/flossypurse-studios/otherbox">View on GitHub →</a>
+    </div>
+    <nav class="jump" aria-label="Jump to a section">
+      <p class="jump-label">On this page</p>
+      <a href="#envs">The nine environments</a>
+      <a href="#failure">Reading a failure</a>
+      <a href="#repeat">Flake or finding?</a>
+      <a href="#worth">What a pass is worth</a>
+      <a href="#ci">In CI</a>
+      <a href="#limits">What it can't tell you</a>
+    </nav>
       <div class="term">
         <div class="bar"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
 <pre><span class="c-muted">$</span> <span class="c-cmd">npx otherbox</span>
