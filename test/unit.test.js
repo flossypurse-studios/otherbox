@@ -150,6 +150,13 @@ test('the reproduce line is a command you can paste', () => {
   assert.match(clean, /npm test$/);
 });
 
+test('four unsets still collapse into env -i, not a wall of four -u flags', () => {
+  const plan = { unset: ['A', 'B', 'C', 'D'], set: {} };
+  const repro = reproFor(plan, ['npm', 'test']);
+  assert.match(repro, /^env -i /, 'four unsets already cross the collapse threshold');
+  assert.equal(repro, 'env -i PATH="PATH" HOME="HOME" TMPDIR="TMPDIR" npm test');
+});
+
 test('parseArgs defaults to npm test and takes a command after -- or bare', () => {
   assert.deepEqual(parseArgs([]).command, ['npm', 'test']);
   assert.deepEqual(parseArgs(['--', 'yarn', 'test', '--ci']).command, ['yarn', 'test', '--ci']);
@@ -228,6 +235,20 @@ test('a clean run says so without ceremony', () => {
     results: [{ id: 'tz', title: 't', catches: 'c', set: {}, unset: [], repro: 'r', ok: true, ms: 10, code: 0, timedOut: false, tail: [] }],
   });
   assert.match(text, /The one environment tested passes/);
+});
+
+test('ok wins over flaky in the verdict order, even for a hypothetical row that carries both', () => {
+  const result = {
+    version: '0.0.0',
+    command: ['npm', 'test'],
+    repeat: 3,
+    baseline: { ok: true, ms: 10, code: 0, runs: 3, failures: 0 },
+    results: [
+      { id: 'tz', title: 'a clock', catches: 'dates', set: {}, unset: [], repro: 'TZ=X npm test', ok: true, flaky: true, runs: 3, failures: 1, ms: 10, code: 0, timedOut: false, tail: [] },
+    ],
+  };
+  const text = humanReport(result);
+  assert.match(text, /tz\s+pass/, 'ok:true is checked first, so this row reads pass, not flaky');
 });
 
 test('the json report is parseable and carries the failing ids', () => {
