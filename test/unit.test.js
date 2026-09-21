@@ -7,9 +7,11 @@ const { PERTURBATIONS, IDS, envFor, reproFor, CLEAN_ENV_KEEP, byId } = require('
 const { parseArgs, selectPerturbations, unknownId } = require('../src/cli');
 const { humanReport, jsonReport, listText, wrap } = require('../src/report');
 const { WHY, whyFor, whyText, whyIndex, whyAll, whyJson } = require('../src/why');
-const { tail } = require('../src/run');
+const { tail, runCommand, MAX_CAPTURE } = require('../src/run');
+const path = require('node:path');
 
 const ctx = { tempDir: (name) => `/tmp/fake/${name}` };
+const FIX = path.join(__dirname, 'fixtures');
 
 test('every perturbation declares an id, a title and what it catches', () => {
   assert.ok(PERTURBATIONS.length >= 8);
@@ -72,10 +74,43 @@ test('the node repro line prepends the directory and lets $PATH expand, not the 
 test('tz, locale, colour and width set exactly the variable they are named for', () => {
   const base = {};
   assert.deepEqual(byId('tz').plan(base, ctx).set, { TZ: 'Pacific/Kiritimati' });
-  assert.equal(byId('locale').plan(base, ctx).set.LC_ALL, 'tr_TR.UTF-8');
+  assert.deepEqual(byId('locale').plan(base, ctx).set, {
+    LANG: 'tr_TR.UTF-8',
+    LANGUAGE: 'tr_TR',
+    LC_ALL: 'tr_TR.UTF-8',
+  });
   assert.deepEqual(byId('narrow').plan(base, ctx).set, { COLUMNS: '40' });
   assert.equal(byId('color').plan(base, ctx).set.FORCE_COLOR, '3');
   assert.deepEqual(byId('color').plan(base, ctx).unset, ['NO_COLOR']);
+});
+
+test('CLEAN_ENV_KEEP is pinned as an exact set, not spot-checked by name', () => {
+  assert.deepEqual(
+    [...CLEAN_ENV_KEEP].sort(),
+    [
+      'COMSPEC',
+      'ComSpec',
+      'HOME',
+      'LANG',
+      'LOGNAME',
+      'NUMBER_OF_PROCESSORS',
+      'PATH',
+      'PATHEXT',
+      'PROCESSOR_ARCHITECTURE',
+      'PWD',
+      'SHELL',
+      'SystemDrive',
+      'SystemRoot',
+      'SYSTEMROOT',
+      'TEMP',
+      'TERM',
+      'TMP',
+      'TMPDIR',
+      'USER',
+      'USERPROFILE',
+      'WINDIR',
+    ].sort(),
+  );
 });
 
 test('ci flips whichever way the current environment is not', () => {
@@ -332,4 +367,20 @@ test('parseArgs reads --why with, without and glued to a value', () => {
   assert.equal(parseArgs(['--why=all']).why, 'all');
   assert.match(parseArgs(['--why=']).error, /--why needs an environment/);
   assert.equal(parseArgs(['npm', 'test']).why, undefined);
+});
+
+test('runCommand caps captured output at MAX_CAPTURE instead of growing unbounded', async () => {
+  const result = await runCommand([process.execPath, path.join(FIX, 'big-output.js')], process.env);
+  assert.equal(result.code, 0);
+  assert.ok(result.output.length <= MAX_CAPTURE, `output.length ${result.output.length} exceeds MAX_CAPTURE`);
+  assert.equal(result.output.length, MAX_CAPTURE);
+});
+
+test('a child that ignores SIGTERM is still stopped by --timeout, via SIGKILL', { timeout: 10000 }, async () => {
+  const result = await runCommand([process.execPath, path.join(FIX, 'ignores-sigterm.js')], process.env, {
+    timeoutMs: 300,
+  });
+  assert.equal(result.timedOut, true);
+  assert.equal(result.signal, 'SIGKILL');
+  assert.equal(result.code, null);
 });

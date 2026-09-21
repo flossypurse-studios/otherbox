@@ -89,6 +89,14 @@ test('a test that only passes because of your shell is caught by clean-env', asy
   assert.match(r.stdout, /reproduce: env -[iu] /);
 });
 
+test('clean-env keeps LANG for a command whose base env actually carries it', async () => {
+  const r = await otherbox(['--only', 'clean-env', '--', ...fixture('needs-lang.js')], {
+    LANG: 'en_US.UTF-8',
+  });
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /clean-env\s+pass/);
+});
+
 test('--json is parseable and carries the same verdict as the exit code', async () => {
   const r = await otherbox(['--json', '--only', 'tz,ci', '--', ...fixture('utc-hours.js')]);
   assert.equal(r.code, 1);
