@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+- **Exit 3 when nothing was checked.** If every chosen environment is skipped (for example
+  `--only node` with no second Node on the machine), otherbox now exits `3` instead of `0`.
+  A run that tested nothing is not a pass.
+
 ## 0.4.0 — 2026-08-17
 A ninth environment: `node`, a second Node if this machine happens to have one.
 
