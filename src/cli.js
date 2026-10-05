@@ -285,6 +285,13 @@ async function main(argv, io = {}) {
       if (!opts.json) err(`  ${result.ok ? 'pass' : result.flaky ? 'flaky' : 'FAIL'}  ${p.id}\n`);
     }
 
+    // Every chosen environment skipped means nothing was checked. That must not
+    // read as a pass: exit 3, "could not check", distinct from 0 and from a finding.
+    if (results.length > 0 && results.every((r) => r.skipped)) {
+      exitCode = 3;
+      if (!opts.json) err(`otherbox: every environment was skipped, so nothing was checked (exit 3).\n`);
+    }
+
     const report = { version: VERSION, command: opts.command, repeat, baseline, results };
     out(opts.json ? `${jsonReport(report)}\n` : `\n${humanReport(report)}`);
     return exitCode;

@@ -62,9 +62,10 @@ otherbox --why clean-env                  # what a pass there proves — and wha
 otherbox --timeout 120                    # seconds per run (default 600)
 ```
 
-Exit codes: **0** every environment passed · **1** at least one failed or was flaky · **2** the
+Exit codes: **0** every environment tested passed · **1** at least one failed or was flaky · **2** the
 command was wrong, or your suite already failed — or failed only sometimes — before anything
-was changed.
+was changed · **3** every chosen environment was skipped, so nothing was checked (for example
+`--only node` on a machine with no second Node). A 3 is never a pass.
 
 ## The environments
 

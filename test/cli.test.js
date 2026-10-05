@@ -52,8 +52,9 @@ test('a command that survives every environment exits 0', async () => {
 
 test('the node environment either finds a second Node or honestly says it skipped', async () => {
   const r = await otherbox(['--only', 'node', '--', ...fixture('always-pass.js')]);
-  assert.equal(r.code, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /node\s+(pass|skip)/);
+  // A skip means nothing was checked: exit 3, never the 0 of a pass.
+  assert.equal(r.code, /node\s+skip/.test(r.stdout) ? 3 : 0, r.stdout + r.stderr);
   if (/node\s+skip/.test(r.stdout)) {
     assert.match(r.stdout, /no second Node was found/);
     assert.match(r.stdout, /No environment could be tested\.|environment.*skipped/);
@@ -222,4 +223,18 @@ test('--why answers in an empty directory, without running anything', async () =
   const bad = await run(['--why', 'hom']);
   assert.equal(bad.code, 2);
   assert.match(bad.stderr, /Did you mean "home"\?/);
+});
+
+test('every chosen environment skipped exits 3, never 0', async () => {
+  const { main } = require('../src/cli.js');
+  let stderr = '';
+  let stdout = '';
+  const code = await main(['--only', 'node', '--', ...fixture('always-pass.js')], {
+    out: (s) => { stdout += s; },
+    err: (s) => { stderr += s; },
+    env: { ...BASE },
+    findSecondNode: () => null,
+  });
+  assert.equal(code, 3, stdout + stderr);
+  assert.match(stderr, /nothing was checked/);
 });
