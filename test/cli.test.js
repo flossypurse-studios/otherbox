@@ -238,3 +238,18 @@ test('every chosen environment skipped exits 3, never 0', async () => {
   assert.equal(code, 3, stdout + stderr);
   assert.match(stderr, /nothing was checked/);
 });
+
+test('--json with every environment skipped says ok: false, matching exit 3', async () => {
+  const { main } = require('../src/cli.js');
+  let stdout = '';
+  const code = await main(['--json', '--only', 'node', '--', ...fixture('always-pass.js')], {
+    out: (s) => { stdout += s; },
+    err: () => {},
+    env: { ...BASE },
+    findSecondNode: () => null,
+  });
+  assert.equal(code, 3, stdout);
+  const report = JSON.parse(stdout);
+  assert.equal(report.ok, false);
+  assert.deepEqual(report.skipped, ['node']);
+});

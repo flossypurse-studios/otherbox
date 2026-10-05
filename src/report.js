@@ -168,7 +168,10 @@ function jsonReport(result) {
       failed: result.results.filter((r) => !r.skipped && !r.ok && !r.flaky).map((r) => r.id),
       flaky: result.results.filter((r) => !r.skipped && r.flaky).map((r) => r.id),
       skipped: result.results.filter((r) => r.skipped).map((r) => r.id),
-      ok: result.results.filter((r) => !r.skipped).every((r) => r.ok),
+      // Nothing tested is not a pass: ok needs at least one environment that ran.
+      ok:
+        result.results.some((r) => !r.skipped) &&
+        result.results.filter((r) => !r.skipped).every((r) => r.ok),
     },
     null,
     2
