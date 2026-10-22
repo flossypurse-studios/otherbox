@@ -2,7 +2,7 @@
 
 **Your tests pass. On your machine.**
 
-[Site](https://otherbox-site.vercel.app) · [npm](https://www.npmjs.com/package/otherbox) · [Changelog](CHANGELOG.md)
+[Site](https://otherbox.dev) · [npm](https://www.npmjs.com/package/otherbox) · [Changelog](CHANGELOG.md)
 
 `otherbox` runs your test command once as-is, then once per environment that differs from
 yours by exactly one thing — a timezone, a locale, an empty home directory, a temp path with
@@ -181,5 +181,13 @@ Or gate on a subset you have already cleaned: `npx otherbox --only tz,clean-env`
 A test suite is green on the machine that wrote it. That is the one machine whose agreement
 proves nothing. Everything above is a thing that has actually broken someone's build the
 first time it ran somewhere else.
+
+## Similar tools
+
+Debian's [reprotest](https://salsa.debian.org/reproducible-builds/reprotest) varies a build
+across timezone, locale, umask and more to check it is byte-for-byte reproducible — the same
+one-variable-at-a-time idea, aimed at build reproducibility rather than test runs. `otherbox`
+wraps any test command (not just a build) and names the single change that turned a run red,
+with `--repeat` to tell a real finding from a flake.
 
 MIT © flossy-studio
